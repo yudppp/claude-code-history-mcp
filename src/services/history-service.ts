@@ -59,6 +59,8 @@ export interface HistoryQueryOptions {
   endDate?: string;
   limit?: number;
   offset?: number;
+  timezone?: string; // e.g., 'Asia/Tokyo', 'UTC', etc. Defaults to system timezone
+  messageTypes?: ('user' | 'assistant' | 'system' | 'result')[]; // Filter by message types
 }
 
 export interface SessionListOptions {
@@ -92,26 +94,58 @@ export class ClaudeCodeHistoryService {
   }
 
   /**
-   * Normalize date string to ISO format for proper comparison
+   * Normalize date string to ISO format for proper comparison with timezone support
    */
-  private normalizeDate(dateString: string, isEndDate: boolean = false): string {
+  private normalizeDate(dateString: string, isEndDate: boolean = false, timezone?: string): string {
     if (dateString.includes('T')) {
       return dateString;
     }
     
-    if (isEndDate) {
-      return `${dateString}T23:59:59.999Z`;
-    } else {
-      return `${dateString}T00:00:00.000Z`;
+    const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    try {
+      const timeStr = isEndDate ? '23:59:59.999' : '00:00:00.000';
+      
+      if (tz === 'UTC') {
+        return `${dateString}T${timeStr}Z`;
+      }
+      
+      // Simple approach: create date in target timezone and format to UTC
+      // This assumes the input date is in the target timezone
+      const isoString = `${dateString}T${timeStr}`;
+      
+      // Create date object treating it as local time in target timezone
+      const localDate = new Date(isoString);
+      
+      // Get what this time would be in the target timezone
+      const utcTime = localDate.getTime();
+      const localOffset = localDate.getTimezoneOffset() * 60000; // Local offset in ms
+      
+      // Create a date in target timezone for offset calculation
+      const tempDate = new Date();
+      const tzDate = new Date(tempDate.toLocaleString('en-US', { timeZone: tz }));
+      const utcDate = new Date(tempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzOffset = (tzDate.getTime() - utcDate.getTime()); // Target timezone offset from UTC
+      
+      // Adjust the time to account for timezone difference
+      const adjustedTime = utcTime + localOffset - tzOffset;
+      
+      return new Date(adjustedTime).toISOString();
+    } catch (error) {
+      console.warn(`Failed to process timezone ${tz}, falling back to UTC:`, error);
+      return `${dateString}T${isEndDate ? '23:59:59.999' : '00:00:00.000'}Z`;
     }
   }
 
   async getConversationHistory(options: HistoryQueryOptions = {}): Promise<PaginatedConversationResponse> {
-    const { sessionId, startDate, endDate, limit = 20, offset = 0 } = options;
+    const { sessionId, startDate, endDate, limit = 20, offset = 0, timezone, messageTypes } = options;
     
     // Normalize date strings for proper comparison
-    const normalizedStartDate = startDate ? this.normalizeDate(startDate, false) : undefined;
-    const normalizedEndDate = endDate ? this.normalizeDate(endDate, true) : undefined;
+    const normalizedStartDate = startDate ? this.normalizeDate(startDate, false, timezone) : undefined;
+    const normalizedEndDate = endDate ? this.normalizeDate(endDate, true, timezone) : undefined;
+    
+    // Determine which message types to include (default to user only to reduce data volume)
+    const allowedTypes = messageTypes && messageTypes.length > 0 ? messageTypes : ['user'];
     
     // Load history from Claude Code's .jsonl files with pre-filtering
     let allEntries = await this.loadClaudeHistoryEntries({ 
@@ -123,6 +157,9 @@ export class ClaudeCodeHistoryService {
     if (sessionId) {
       allEntries = allEntries.filter(entry => entry.sessionId === sessionId);
     }
+
+    // Filter by message types (defaults to user only)
+    allEntries = allEntries.filter(entry => allowedTypes.includes(entry.type));
 
     // Filter by date range if specified (additional in-memory filtering for precision)
     if (normalizedStartDate) {

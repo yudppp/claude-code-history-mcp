@@ -61,6 +61,19 @@ const tools: Tool[] = [
           description: 'Number of conversations to skip for pagination (default: 0)',
           default: 0,
         },
+        messageTypes: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['user', 'assistant', 'system', 'result']
+          },
+          description: 'Filter by specific message types. Defaults to ["user"] to reduce data volume. Use ["user", "assistant"] to include Claude responses.',
+          default: ['user']
+        },
+        timezone: {
+          type: 'string',
+          description: 'Timezone for date filtering (e.g., "Asia/Tokyo", "UTC"). Defaults to system timezone.',
+        },
       },
     },
   },
@@ -132,6 +145,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           endDate: args?.endDate as string,
           limit: (args?.limit as number) || 20,
           offset: (args?.offset as number) || 0,
+          messageTypes: args?.messageTypes as ('user' | 'assistant' | 'system' | 'result')[],
+          timezone: args?.timezone as string,
         });
         return createResponse(history);
       }
