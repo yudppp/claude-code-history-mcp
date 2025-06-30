@@ -12,7 +12,7 @@ import { ClaudeCodeHistoryService } from './services/history-service.js';
 const server = new Server(
   {
     name: 'claude-code-history-mcp',
-    version: '1.0.0',
+    version: '1.0.1',
   },
   {
     capabilities: {
@@ -31,11 +31,40 @@ const createResponse = (data: any) => ({ // eslint-disable-line @typescript-esli
   }],
 });
 
-// Define available tools
+// Define available tools (ordered by recommended workflow)
 const tools: Tool[] = [
   {
+    name: 'list_projects',
+    description: 'List all projects with Claude Code conversation history (start here to explore available data)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'list_sessions',
+    description: 'List conversation sessions for a project or date range (use after list_projects to find specific sessions)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectPath: {
+          type: 'string',
+          description: 'Filter by specific project path (optional)',
+        },
+        startDate: {
+          type: 'string',
+          description: 'Start date in ISO format (optional)',
+        },
+        endDate: {
+          type: 'string',
+          description: 'End date in ISO format (optional)',
+        },
+      },
+    },
+  },
+  {
     name: 'get_conversation_history',
-    description: 'Get conversation history from Claude Code sessions with pagination support',
+    description: 'Get paginated conversation history (use after exploring with list_projects/list_sessions for targeted data)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -79,7 +108,7 @@ const tools: Tool[] = [
   },
   {
     name: 'search_conversations',
-    description: 'Search through conversation history by content',
+    description: 'Search through conversation history by content (useful for finding specific topics across all conversations)',
     inputSchema: {
       type: 'object',
       properties: {
@@ -94,35 +123,6 @@ const tools: Tool[] = [
         },
       },
       required: ['query'],
-    },
-  },
-  {
-    name: 'list_projects',
-    description: 'List all projects that have Claude Code conversation history',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'list_sessions',
-    description: 'List all conversation sessions for a specific project or date range',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        projectPath: {
-          type: 'string',
-          description: 'Filter by specific project path (optional)',
-        },
-        startDate: {
-          type: 'string',
-          description: 'Start date in ISO format (optional)',
-        },
-        endDate: {
-          type: 'string',
-          description: 'End date in ISO format (optional)',
-        },
-      },
     },
   },
 ];
