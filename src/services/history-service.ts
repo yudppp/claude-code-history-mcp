@@ -42,12 +42,23 @@ export interface ConversationEntry {
   };
 }
 
+export interface PaginatedConversationResponse {
+  entries: ConversationEntry[];
+  pagination: {
+    total_count: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
 
 export interface HistoryQueryOptions {
   sessionId?: string;
   startDate?: string;
   endDate?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface SessionListOptions {
@@ -95,8 +106,8 @@ export class ClaudeCodeHistoryService {
     }
   }
 
-  async getConversationHistory(options: HistoryQueryOptions = {}): Promise<ConversationEntry[]> {
-    const { sessionId, startDate, endDate, limit = 20 } = options;
+  async getConversationHistory(options: HistoryQueryOptions = {}): Promise<PaginatedConversationResponse> {
+    const { sessionId, startDate, endDate, limit = 20, offset = 0 } = options;
     
     // Normalize date strings for proper comparison
     const normalizedStartDate = startDate ? this.normalizeDate(startDate, false) : undefined;
@@ -126,9 +137,23 @@ export class ClaudeCodeHistoryService {
       );
     }
 
-    // Sort by timestamp (newest first) and limit
+    // Sort by timestamp (newest first)
     allEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return allEntries.slice(0, limit);
+    
+    // Calculate pagination
+    const totalCount = allEntries.length;
+    const paginatedEntries = allEntries.slice(offset, offset + limit);
+    const hasMore = offset + limit < totalCount;
+
+    return {
+      entries: paginatedEntries,
+      pagination: {
+        total_count: totalCount,
+        limit,
+        offset,
+        has_more: hasMore
+      }
+    };
   }
 
 

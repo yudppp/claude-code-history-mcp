@@ -113,10 +113,12 @@ describe('Date Filtering Performance Tests', () => {
     expect(response.result).toHaveProperty('content');
     
     const results = JSON.parse(response.result.content[0].text);
-    console.log(`Found ${results.length} entries for ${yesterdayStr}`);
+    console.log(`Found ${results.entries?.length || 'undefined'} entries for ${yesterdayStr}`);
     
-    // Should be valid array (even if empty for narrow date range)
-    expect(Array.isArray(results)).toBe(true);
+    // Should be valid paginated response with entries array
+    expect(results).toHaveProperty('entries');
+    expect(results).toHaveProperty('pagination');
+    expect(Array.isArray(results.entries)).toBe(true);
   });
 
   it('should handle queries for date ranges with no data efficiently', async () => {
@@ -146,9 +148,12 @@ describe('Date Filtering Performance Tests', () => {
     
     const results = JSON.parse(response.result.content[0].text);
     
-    // Should return empty array quickly due to file-level filtering
-    expect(Array.isArray(results)).toBe(true);
-    expect(results.length).toBe(0);
+    // Should return empty paginated response quickly due to file-level filtering
+    expect(results).toHaveProperty('entries');
+    expect(results).toHaveProperty('pagination');
+    expect(Array.isArray(results.entries)).toBe(true);
+    expect(results.entries.length).toBe(0);
+    expect(results.pagination.total_count).toBe(0);
     
     // Should be very fast when no files need to be read
     expect(duration).toBeLessThan(2000);

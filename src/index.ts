@@ -35,7 +35,7 @@ const createResponse = (data: any) => ({
 const tools: Tool[] = [
   {
     name: 'get_conversation_history',
-    description: 'Get conversation history from Claude Code sessions',
+    description: 'Get conversation history from Claude Code sessions with pagination support',
     inputSchema: {
       type: 'object',
       properties: {
@@ -55,6 +55,11 @@ const tools: Tool[] = [
           type: 'number',
           description: 'Maximum number of conversations to return (default: 20)',
           default: 20,
+        },
+        offset: {
+          type: 'number',
+          description: 'Number of conversations to skip for pagination (default: 0)',
+          default: 0,
         },
       },
     },
@@ -126,6 +131,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           startDate: args?.startDate as string,
           endDate: args?.endDate as string,
           limit: (args?.limit as number) || 20,
+          offset: (args?.offset as number) || 0,
         });
         return createResponse(history);
       }

@@ -151,7 +151,9 @@ describe('MCP Server Integration Tests', () => {
       });
 
       const history = JSON.parse(response.result.content[0].text);
-      expect(Array.isArray(history)).toBe(true);
+      expect(history).toHaveProperty('entries');
+      expect(history).toHaveProperty('pagination');
+      expect(Array.isArray(history.entries)).toBe(true);
     });
   });
 
@@ -299,7 +301,9 @@ describe('MCP Server Integration Tests', () => {
       expect(response.result).toBeDefined();
 
       const history = JSON.parse(response.result.content[0].text);
-      expect(Array.isArray(history)).toBe(true);
+      expect(history).toHaveProperty('entries');
+      expect(history).toHaveProperty('pagination');
+      expect(Array.isArray(history.entries)).toBe(true);
     });
 
     it('should handle list_sessions with project filter', async () => {
