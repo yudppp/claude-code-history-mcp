@@ -1,0 +1,27 @@
+# Development files
+src/
+tests/
+.claude/
+coverage/
+*.test.ts
+*.spec.ts
+
+# Configuration files
+tsconfig.json
+jest.config.js
+.gitignore
+.eslintrc*
+.prettierrc*
+
+# CI/CD files
+.github/
+
+# Development dependencies and build artifacts
+node_modules/
+*.tsbuildinfo
+
+# Local development files
+.env*
+.vscode/
+.idea/
+*.log
