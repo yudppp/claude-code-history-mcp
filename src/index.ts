@@ -24,7 +24,7 @@ const server = new Server(
 const historyService = new ClaudeCodeHistoryService();
 
 // Helper function to create response
-const createResponse = (data: any) => ({
+const createResponse = (data: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
   content: [{
     type: 'text',
     text: JSON.stringify(data),

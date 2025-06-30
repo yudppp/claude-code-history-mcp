@@ -14,9 +14,9 @@ export interface ClaudeCodeMessage {
   type: 'user' | 'assistant' | 'system' | 'result';
   message?: {
     role: string;
-    content: string | any[];
+    content: string | any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
     model?: string;
-    usage?: any;
+    usage?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   };
   uuid: string;
   timestamp: string;
@@ -31,7 +31,7 @@ export interface ConversationEntry {
   projectPath: string;
   uuid: string;
   metadata?: {
-    usage?: any;
+    usage?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     totalCostUsd?: number;
     numTurns?: number;
     durationMs?: number;
@@ -234,7 +234,8 @@ export class ClaudeCodeHistoryService {
             });
           }
           
-          const projectInfo = projects.get(decodedPath)!;
+          const projectInfo = projects.get(decodedPath);
+          if (!projectInfo) continue;
           
           for (const file of files) {
             if (file.endsWith('.jsonl')) {
