@@ -80,11 +80,33 @@ export class ClaudeCodeHistoryService {
     this.claudeDir = path.join(os.homedir(), '.claude');
   }
 
+  /**
+   * Normalize date string to ISO format for proper comparison
+   */
+  private normalizeDate(dateString: string, isEndDate: boolean = false): string {
+    if (dateString.includes('T')) {
+      return dateString;
+    }
+    
+    if (isEndDate) {
+      return `${dateString}T23:59:59.999Z`;
+    } else {
+      return `${dateString}T00:00:00.000Z`;
+    }
+  }
+
   async getConversationHistory(options: HistoryQueryOptions = {}): Promise<ConversationEntry[]> {
     const { sessionId, startDate, endDate, limit = 20 } = options;
     
+    // Normalize date strings for proper comparison
+    const normalizedStartDate = startDate ? this.normalizeDate(startDate, false) : undefined;
+    const normalizedEndDate = endDate ? this.normalizeDate(endDate, true) : undefined;
+    
     // Load history from Claude Code's .jsonl files with pre-filtering
-    let allEntries = await this.loadClaudeHistoryEntries({ startDate, endDate });
+    let allEntries = await this.loadClaudeHistoryEntries({ 
+      startDate: normalizedStartDate, 
+      endDate: normalizedEndDate 
+    });
     
     // Filter by session ID if specified
     if (sessionId) {
@@ -92,15 +114,15 @@ export class ClaudeCodeHistoryService {
     }
 
     // Filter by date range if specified (additional in-memory filtering for precision)
-    if (startDate) {
+    if (normalizedStartDate) {
       allEntries = allEntries.filter(entry => 
-        entry.timestamp >= startDate
+        entry.timestamp >= normalizedStartDate
       );
     }
 
-    if (endDate) {
+    if (normalizedEndDate) {
       allEntries = allEntries.filter(entry => 
-        entry.timestamp <= endDate
+        entry.timestamp <= normalizedEndDate
       );
     }
 
@@ -269,7 +291,7 @@ export class ClaudeCodeHistoryService {
                 continue;
               }
               
-              const sessionEntries = await this.parseJsonlFile(filePath, projectDir);
+              const sessionEntries = await this.parseJsonlFile(filePath, projectDir, startDate, endDate);
               entries.push(...sessionEntries);
             }
           }
@@ -282,7 +304,7 @@ export class ClaudeCodeHistoryService {
     return entries;
   }
 
-  private async parseJsonlFile(filePath: string, projectDir: string): Promise<ConversationEntry[]> {
+  private async parseJsonlFile(filePath: string, projectDir: string, startDate?: string, endDate?: string): Promise<ConversationEntry[]> {
     const entries: ConversationEntry[] = [];
     
     try {
@@ -296,6 +318,15 @@ export class ClaudeCodeHistoryService {
         if (line.trim()) {
           try {
             const claudeMessage: ClaudeCodeMessage = JSON.parse(line);
+            
+            // Apply date filtering at message level for efficiency
+            if (startDate && claudeMessage.timestamp < startDate) {
+              continue;
+            }
+            if (endDate && claudeMessage.timestamp > endDate) {
+              continue;
+            }
+            
             const entry = this.convertClaudeMessageToEntry(claudeMessage, projectDir);
             if (entry) {
               entries.push(entry);
