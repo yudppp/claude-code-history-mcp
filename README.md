@@ -90,8 +90,20 @@ Add the following configuration to your MCP client (e.g., Claude Desktop):
 {
   "mcpServers": {
     "claude-code-history": {
-      "command": "node",
-      "args": ["/path/to/claude-code-history-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["claude-code-history-mcp"]
+    }
+  }
+}
+```
+
+Alternatively, if you have installed the package globally:
+
+```json
+{
+  "mcpServers": {
+    "claude-code-history": {
+      "command": "claude-code-history-mcp"
     }
   }
 }
