@@ -67,6 +67,7 @@ export interface SessionListOptions {
   projectPath?: string;
   startDate?: string;
   endDate?: string;
+  timezone?: string;
 }
 
 export interface ProjectInfo {
@@ -84,6 +85,14 @@ export interface SessionInfo {
   messageCount: number;
   userMessageCount: number;
   assistantMessageCount: number;
+}
+
+export interface SearchOptions {
+  limit?: number;
+  projectPath?: string;
+  startDate?: string;
+  endDate?: string;
+  timezone?: string;
 }
 
 export class ClaudeCodeHistoryService {
@@ -195,13 +204,41 @@ export class ClaudeCodeHistoryService {
 
 
 
-  async searchConversations(searchQuery: string, limit: number = 30): Promise<ConversationEntry[]> {
-    const allEntries = await this.loadClaudeHistoryEntries();
+  async searchConversations(searchQuery: string, options: SearchOptions = {}): Promise<ConversationEntry[]> {
+    const { limit = 30, projectPath, startDate, endDate, timezone } = options;
+    
+    // Normalize date strings for proper comparison
+    const normalizedStartDate = startDate ? this.normalizeDate(startDate, false, timezone) : undefined;
+    const normalizedEndDate = endDate ? this.normalizeDate(endDate, true, timezone) : undefined;
+    
+    const allEntries = await this.loadClaudeHistoryEntries({
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate
+    });
+    
     const queryLower = searchQuery.toLowerCase();
     
-    const matchedEntries = allEntries.filter(entry =>
+    let matchedEntries = allEntries.filter(entry =>
       entry.content.toLowerCase().includes(queryLower)
     );
+
+    // Filter by project path if specified
+    if (projectPath) {
+      matchedEntries = matchedEntries.filter(entry => entry.projectPath === projectPath);
+    }
+
+    // Filter by date range if specified (additional in-memory filtering for precision)
+    if (normalizedStartDate) {
+      matchedEntries = matchedEntries.filter(entry => 
+        entry.timestamp >= normalizedStartDate
+      );
+    }
+
+    if (normalizedEndDate) {
+      matchedEntries = matchedEntries.filter(entry => 
+        entry.timestamp <= normalizedEndDate
+      );
+    }
 
     matchedEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return matchedEntries.slice(0, limit);
@@ -269,7 +306,11 @@ export class ClaudeCodeHistoryService {
   }
 
   async listSessions(options: SessionListOptions = {}): Promise<SessionInfo[]> {
-    const { projectPath, startDate, endDate } = options;
+    const { projectPath, startDate, endDate, timezone } = options;
+    
+    // Normalize date strings for proper comparison
+    const normalizedStartDate = startDate ? this.normalizeDate(startDate, false, timezone) : undefined;
+    const normalizedEndDate = endDate ? this.normalizeDate(endDate, true, timezone) : undefined;
     const sessions: SessionInfo[] = [];
 
     try {
@@ -302,8 +343,8 @@ export class ClaudeCodeHistoryService {
               const sessionEnd = entries[0].timestamp;
               
               // Filter by date range if specified
-              if (startDate && sessionEnd < startDate) continue;
-              if (endDate && sessionStart > endDate) continue;
+              if (normalizedStartDate && sessionEnd < normalizedStartDate) continue;
+              if (normalizedEndDate && sessionStart > normalizedEndDate) continue;
               
               const userMessageCount = entries.filter(e => e.type === 'user').length;
               const assistantMessageCount = entries.filter(e => e.type === 'assistant').length;

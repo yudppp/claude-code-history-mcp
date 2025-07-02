@@ -20,6 +20,7 @@ List conversation sessions for exploration and filtering.
 - `projectPath` (optional): Filter by specific project
 - `startDate` (optional): Start date (e.g., "2025-06-30")
 - `endDate` (optional): End date (e.g., "2025-06-30")
+- `timezone` (optional): Timezone for date filtering (e.g., "Asia/Tokyo", "UTC")
 
 **Returns:** Session IDs, timestamps, message counts, and project paths.
 
@@ -65,11 +66,15 @@ Retrieve paginated conversation history with smart filtering.
 ```
 
 ### 4. `search_conversations` 🔍 **Find Specific Content**
-Search across all conversation content by keywords.
+Search across all conversation content by keywords with advanced filtering.
 
 **Parameters:**
 - `query` (required): Search terms
 - `limit` (optional): Max results (default: 30)
+- `projectPath` (optional): Filter by specific project path
+- `startDate` (optional): Start date (e.g., "2025-06-30")
+- `endDate` (optional): End date (e.g., "2025-06-30")
+- `timezone` (optional): Timezone for date filtering (e.g., "Asia/Tokyo", "UTC")
 
 ## Quick Start
 
@@ -118,11 +123,12 @@ Alternatively, if you have installed the package globally:
 
 ### 2. **Find Relevant Sessions**
 ```json
-// List sessions for a specific project or date range
+// List sessions for a specific project or date range with timezone
 {
   "tool": "list_sessions",
   "projectPath": "/Users/yourname/code/my-project",
-  "startDate": "2025-06-30"
+  "startDate": "2025-06-30",
+  "timezone": "Asia/Tokyo"
 }
 ```
 
@@ -177,11 +183,24 @@ Analyze my recent work on Project X
 
 ### **Topic Research**
 ```
-Find all conversations about "API integration"
+Find all conversations about "API integration" in a specific project
 ```
-1. `search_conversations` with query "API integration"
+1. `search_conversations` with query "API integration", projectPath, and date range
 2. Use results to identify relevant sessions
 3. `get_conversation_history` for detailed context
+
+**Example with advanced filtering:**
+```json
+{
+  "tool": "search_conversations",
+  "query": "API integration",
+  "projectPath": "/Users/yourname/code/my-project",
+  "startDate": "2025-06-01",
+  "endDate": "2025-06-30",
+  "timezone": "Asia/Tokyo",
+  "limit": 50
+}
+```
 
 ## License
 

@@ -12,7 +12,7 @@ import { ClaudeCodeHistoryService } from './services/history-service.js';
 const server = new Server(
   {
     name: 'claude-code-history-mcp',
-    version: '1.0.1',
+    version: '1.1.0',
   },
   {
     capabilities: {
@@ -58,6 +58,10 @@ const tools: Tool[] = [
         endDate: {
           type: 'string',
           description: 'End date in ISO format (optional)',
+        },
+        timezone: {
+          type: 'string',
+          description: 'Timezone for date filtering (e.g., "Asia/Tokyo", "UTC"). Defaults to system timezone.',
         },
       },
     },
@@ -121,6 +125,22 @@ const tools: Tool[] = [
           description: 'Maximum number of results to return (default: 30)',
           default: 30,
         },
+        projectPath: {
+          type: 'string',
+          description: 'Filter by specific project path (optional)',
+        },
+        startDate: {
+          type: 'string',
+          description: 'Start date in ISO format (optional)',
+        },
+        endDate: {
+          type: 'string',
+          description: 'End date in ISO format (optional)',
+        },
+        timezone: {
+          type: 'string',
+          description: 'Timezone for date filtering (e.g., "Asia/Tokyo", "UTC"). Defaults to system timezone.',
+        },
       },
       required: ['query'],
     },
@@ -159,7 +179,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         
         const results = await historyService.searchConversations(
           query,
-          (args?.limit as number) || 50
+          {
+            limit: (args?.limit as number) || 30,
+            projectPath: args?.projectPath as string,
+            startDate: args?.startDate as string,
+            endDate: args?.endDate as string,
+            timezone: args?.timezone as string,
+          }
         );
         return createResponse(results);
       }
@@ -174,6 +200,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           projectPath: args?.projectPath as string,
           startDate: args?.startDate as string,
           endDate: args?.endDate as string,
+          timezone: args?.timezone as string,
         });
         return createResponse(sessions);
       }
