@@ -30,6 +30,9 @@ export interface ConversationEntry {
   content: string;
   projectPath: string;
   uuid: string;
+  formattedTime?: string; // Human readable time in local timezone
+  timeAgo?: string; // Relative time (e.g., "2 hours ago")
+  localDate?: string; // Date in YYYY-MM-DD format in local timezone
   metadata?: {
     usage?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     totalCostUsd?: number;
@@ -113,36 +116,46 @@ export class ClaudeCodeHistoryService {
     const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
     
     try {
-      const timeStr = isEndDate ? '23:59:59.999' : '00:00:00.000';
-      
       if (tz === 'UTC') {
+        const timeStr = isEndDate ? '23:59:59.999' : '00:00:00.000';
         return `${dateString}T${timeStr}Z`;
       }
       
-      // Simple approach: create date in target timezone and format to UTC
-      // This assumes the input date is in the target timezone
-      const isoString = `${dateString}T${timeStr}`;
+      // Correct approach: Create date in target timezone and convert to UTC
+      const [year, month, day] = dateString.split('-').map(Number);
+      const hour = isEndDate ? 23 : 0;
+      const minute = isEndDate ? 59 : 0;
+      const second = isEndDate ? 59 : 0;
+      const millisecond = isEndDate ? 999 : 0;
       
-      // Create date object treating it as local time in target timezone
-      const localDate = new Date(isoString);
+      // Create a reference date to calculate offset
+      const referenceDate = new Date(year, month - 1, day, 12, 0, 0); // Use noon for stable offset
       
-      // Get what this time would be in the target timezone
-      const utcTime = localDate.getTime();
-      const localOffset = localDate.getTimezoneOffset() * 60000; // Local offset in ms
+      // Calculate timezone offset for this specific date (handles DST)
+      const offsetMs = referenceDate.getTimezoneOffset() * 60000;
       
-      // Create a date in target timezone for offset calculation
-      const tempDate = new Date();
-      const tzDate = new Date(tempDate.toLocaleString('en-US', { timeZone: tz }));
-      const utcDate = new Date(tempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
-      const tzOffset = (tzDate.getTime() - utcDate.getTime()); // Target timezone offset from UTC
+      // Create the target time in the specified timezone
+      const localTime = new Date(year, month - 1, day, hour, minute, second, millisecond);
       
-      // Adjust the time to account for timezone difference
-      const adjustedTime = utcTime + localOffset - tzOffset;
+      // Get what this local time would be in the target timezone
+      const targetTzTime = new Date(localTime.toLocaleString('en-CA', { timeZone: tz }));
+      const utcTime = new Date(localTime.toLocaleString('en-CA', { timeZone: 'UTC' }));
       
-      return new Date(adjustedTime).toISOString();
+      // Calculate the difference between target timezone and UTC
+      const tzOffsetMs = targetTzTime.getTime() - utcTime.getTime();
+      
+      // Adjust local time to get UTC equivalent
+      const utcResult = new Date(localTime.getTime() + offsetMs - tzOffsetMs);
+      
+      const result = utcResult.toISOString();
+      console.log(`normalizeDate: ${dateString} (${isEndDate ? 'end' : 'start'}) in ${tz} -> ${result}`);
+      
+      return result;
     } catch (error) {
-      console.warn(`Failed to process timezone ${tz}, falling back to UTC:`, error);
-      return `${dateString}T${isEndDate ? '23:59:59.999' : '00:00:00.000'}Z`;
+      console.warn(`Failed to process timezone ${tz}, falling back to simple conversion:`, error);
+      const fallback = `${dateString}T${isEndDate ? '23:59:59.999' : '00:00:00.000'}Z`;
+      console.log(`normalizeDate fallback: ${dateString} -> ${fallback}`);
+      return fallback;
     }
   }
 
@@ -469,13 +482,29 @@ export class ClaudeCodeHistoryService {
       // Decode project path from directory name
       const projectPath = this.decodeProjectPath(projectDir);
 
+      // Add enhanced time information
+      const timestamp = claudeMessage.timestamp;
+      const messageDate = new Date(timestamp);
+      
       return {
         sessionId: claudeMessage.sessionId,
-        timestamp: claudeMessage.timestamp,
+        timestamp,
         type: claudeMessage.type,
         content,
         projectPath,
         uuid: claudeMessage.uuid,
+        formattedTime: messageDate.toLocaleString('en-US', { 
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit', 
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }),
+        timeAgo: this.getTimeAgo(messageDate),
+        localDate: messageDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' }),
         metadata: {
           usage: claudeMessage.message?.usage,
           model: claudeMessage.message?.model,
@@ -486,6 +515,22 @@ export class ClaudeCodeHistoryService {
       console.error('Error converting Claude message:', error);
       return null;
     }
+  }
+
+  private getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+    return `${Math.floor(diffDays / 365)}y ago`;
   }
 
   private decodeProjectPath(projectDir: string): string {
